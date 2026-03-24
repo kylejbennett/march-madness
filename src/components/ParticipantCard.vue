@@ -35,7 +35,7 @@ defineProps({
         <h2 class="participant-name">{{ participant.name }}</h2>
       </div>
       <div class="participant-wins">
-        {{ participant.totalWins || 0 }} W
+        {{ participant.totalWins || 0 }} {{ participant.totalWins === 1 ? 'WIN' : 'WINS' }}
       </div>
     </header>
 
@@ -80,7 +80,7 @@ defineProps({
 }
 
 .participant-wins {
-  @apply bg-transparent px-2 py-1 border border-accent-base rounded-sm text-accent-base font-semibold text-base;
+  @apply bg-transparent px-3 py-1 border border-accent-base rounded-full text-accent-base font-semibold text-sm tracking-wide;
 }
 
 .team-list {

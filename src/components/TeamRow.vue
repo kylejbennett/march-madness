@@ -10,7 +10,7 @@ defineProps({
 <template>
   <div 
     class="team-row"
-    :class="{ 'team-eliminated': team.eliminated }"
+    :class="{ 'is-eliminated': team.eliminated }"
   >
     <div class="team-info">
       <img v-if="team.logo" :src="team.logo" :alt="team.name" class="team-logo" />
@@ -32,16 +32,16 @@ defineProps({
   @apply bg-white/10 border-white/5;
 }
 
-.team-eliminated {
-  @apply opacity-35 grayscale;
-}
-
-.team-eliminated:hover {
-  @apply bg-transparent border-transparent;
+.is-eliminated:hover {
+  @apply bg-white/5 border-transparent;
 }
 
 .team-info {
-  @apply flex items-center flex-1 gap-3;
+  @apply flex items-center flex-1 gap-3 transition-all duration-200;
+}
+
+.is-eliminated .team-info {
+  @apply opacity-35 grayscale;
 }
 
 .team-logo {
@@ -56,16 +56,12 @@ defineProps({
   @apply font-normal text-sm leading-tight;
 }
 
-.team-eliminated .team-name {
+.is-eliminated .team-name {
   @apply line-through;
 }
 
 .team-score {
   font-family: theme('fontFamily.handwritten');
-  @apply font-bold tracking-widest text-zinc-400;
-}
-
-.team-row:not(.team-eliminated) .team-score {
-  @apply text-zinc-200;
+  @apply font-bold tracking-widest text-zinc-200;
 }
 </style>
