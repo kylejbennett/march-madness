@@ -40,6 +40,10 @@ const resolveWinner = (t1, t2, requiredWins) => {
    return null;
 }
 
+const isTeamEliminatedInRound = (team, rndIdx) => {
+   return team?.eliminated && team?.wins === rndIdx;
+}
+
 const regionOrder = ['East', 'South', 'West', 'Midwest']
 
 // Dynamically compute the 7 columns of the massive tournament tree!
@@ -191,7 +195,7 @@ const getRegionChunks = (round, rndIdx) => {
                  
                  <!-- Binary Match Node -->
                  <template v-if="match.length === 2">
-                   <div class="team-slot" :class="{'eliminated': match[0]?.eliminated}">
+                   <div class="team-slot" :class="{'eliminated': isTeamEliminatedInRound(match[0], rndIdx)}">
                       <div class="flex items-center w-full">
                         <span v-if="match[0]" class="team-seed">{{ match[0].seed }}</span>
                         <img v-if="match[0]?.logo" :src="match[0].logo" class="w-4 h-4 object-contain mr-1.5 drop-shadow-sm" />
@@ -201,7 +205,7 @@ const getRegionChunks = (round, rndIdx) => {
                    
                    <div class="border-b border-glass-border"></div>
                    
-                   <div class="team-slot" :class="{'eliminated': match[1]?.eliminated}">
+                   <div class="team-slot" :class="{'eliminated': isTeamEliminatedInRound(match[1], rndIdx)}">
                       <div class="flex items-center w-full">
                         <span v-if="match[1]" class="team-seed">{{ match[1].seed }}</span>
                         <img v-if="match[1]?.logo" :src="match[1].logo" class="w-4 h-4 object-contain mr-1.5 drop-shadow-sm" />
