@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { teams } from '../data/teams'
 
 const props = defineProps({
   game: {
@@ -22,6 +23,10 @@ const pHomeName = computed(() => props.getParticipant(homeTeam.value.team?.id))
 const statusState = computed(() => props.game.status?.type?.state || 'pre')
 const statusDetail = computed(() => props.game.status?.type?.detail || '')
 
+const getSeed = (espnId) => {
+   return teams.find(t => String(t.espnId) === String(espnId))?.seed
+}
+
 const startTime = computed(() => {
   if (!props.game.date) return ''
   return new Date(props.game.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -31,15 +36,15 @@ const startTime = computed(() => {
 <template>
   <article class="glass-panel overflow-hidden flex flex-col">
     <!-- Spotlight Banner -->
-    <div v-if="pAwayName || pHomeName" class="bg-white/5 border-b border-white/5 px-4 py-2 flex items-center justify-between">
-      <div class="flex-1 text-left">
-        <span v-if="pAwayName" class="text-[0.7rem] font-bold text-accent-base uppercase tracking-wider">{{ pAwayName }}</span>
-        <span v-else class="text-[0.7rem] font-medium text-zinc-600 uppercase">Unowned</span>
-      </div>
-      <div class="px-2 text-[0.65rem] font-black text-zinc-500 uppercase tracking-widest">VS</div>
+    <div v-if="pAwayName || pHomeName" class="bg-zinc-900 border-b border-accent-base/20 px-4 py-3 flex items-center shadow-inner">
       <div class="flex-1 text-right">
-        <span v-if="pHomeName" class="text-[0.7rem] font-bold text-accent-base uppercase tracking-wider">{{ pHomeName }}</span>
-        <span v-else class="text-[0.7rem] font-medium text-zinc-600 uppercase">Unowned</span>
+        <span v-if="pAwayName" class="text-sm sm:text-base font-black text-accent-base uppercase tracking-widest drop-shadow-md">{{ pAwayName }}</span>
+        <span v-else class="text-[0.7rem] font-medium text-zinc-600 uppercase tracking-wider">Unowned</span>
+      </div>
+      <div class="px-3 text-[0.7rem] font-black uppercase tracking-widest">VS</div>
+      <div class="flex-1">
+        <span v-if="pHomeName" class="text-sm sm:text-base font-black text-accent-base uppercase tracking-widest drop-shadow-md">{{ pHomeName }}</span>
+        <span v-else class="text-[0.7rem] font-medium text-zinc-600 uppercase tracking-wider">Unowned</span>
       </div>
     </div>
 
@@ -47,10 +52,14 @@ const startTime = computed(() => {
     <div class="p-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4 flex-1">
       
       <!-- Away Team -->
-      <div class="flex flex-col items-center text-center gap-2">
-         <img v-if="awayTeam.team?.logo" :src="awayTeam.team.logo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain drop-shadow-md" />
-         <div class="flex flex-col">
-           <span v-if="awayTeam.curatedRank?.current && awayTeam.curatedRank.current !== 99" class="text-[0.65rem] text-zinc-400 font-bold">{{ awayTeam.curatedRank.current }}</span>
+      <div class="flex flex-col items-center text-center gap-1">
+         <div class="relative inline-block">
+            <img v-if="awayTeam.team?.logo" :src="awayTeam.team.logo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain drop-shadow-md relative z-10" />
+            <div v-if="getSeed(awayTeam.team?.id)" class="absolute -top-1 -right-2 w-5 h-5 rounded-full bg-zinc-800 border border-zinc-600 shadow-[0_2px_5px_rgba(0,0,0,0.5)] flex items-center justify-center z-20">
+               <span class="text-[0.6rem] font-bold text-zinc-300">{{ getSeed(awayTeam.team?.id) }}</span>
+            </div>
+         </div>
+         <div class="flex flex-col mt-1">
            <span class="font-semibold text-sm leading-tight text-zinc-200">{{ awayTeam.team?.shortDisplayName || awayTeam.team?.name }}</span>
          </div>
          <span v-if="statusState !== 'pre'" class="text-2xl font-bold mt-1" :class="{'text-zinc-500': statusState === 'post' && awayTeam.winner === false}">{{ awayTeam.score || '0' }}</span>
@@ -76,10 +85,14 @@ const startTime = computed(() => {
       </div>
 
       <!-- Home Team -->
-      <div class="flex flex-col items-center text-center gap-2">
-         <img v-if="homeTeam.team?.logo" :src="homeTeam.team.logo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain drop-shadow-md" />
-         <div class="flex flex-col">
-           <span v-if="homeTeam.curatedRank?.current && homeTeam.curatedRank.current !== 99" class="text-[0.65rem] text-zinc-400 font-bold">{{ homeTeam.curatedRank.current }}</span>
+      <div class="flex flex-col items-center text-center gap-1">
+         <div class="relative inline-block">
+            <img v-if="homeTeam.team?.logo" :src="homeTeam.team.logo" class="w-10 h-10 sm:w-12 sm:h-12 object-contain drop-shadow-md relative z-10" />
+            <div v-if="getSeed(homeTeam.team?.id)" class="absolute -top-1 -right-2 w-5 h-5 rounded-full bg-zinc-800 border border-zinc-600 shadow-[0_2px_5px_rgba(0,0,0,0.5)] flex items-center justify-center z-20">
+               <span class="text-[0.6rem] font-bold text-zinc-300">{{ getSeed(homeTeam.team?.id) }}</span>
+            </div>
+         </div>
+         <div class="flex flex-col mt-1">
            <span class="font-semibold text-sm leading-tight text-zinc-200">{{ homeTeam.team?.shortDisplayName || homeTeam.team?.name }}</span>
          </div>
          <span v-if="statusState !== 'pre'" class="text-2xl font-bold mt-1" :class="{'text-zinc-500': statusState === 'post' && homeTeam.winner === false}">{{ homeTeam.score || '0' }}</span>
