@@ -62,12 +62,7 @@ const getRankClass = (rank) => {
   <div class="wrapper animate-fade-in max-w-[1400px] mx-auto min-h-screen pb-12">
     
     <!-- Action Header -->
-    <div class="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 md:px-0">
-      <div>
-        <h2 class="text-3xl font-black text-white uppercase tracking-wider mb-1">Standings</h2>
-        <p class="text-zinc-400">Live active tracking of your pool participants and drafting arrays.</p>
-      </div>
-
+    <div class="mb-10 flex flex-col md:flex-row md:items-center justify-end gap-6 px-4 md:px-0">
       <div class="bg-black/50 p-1 rounded-full flex border border-glass-border w-max shadow-xl overflow-hidden relative z-10">
         <button 
           @click="sortMode = 'draft'" 
