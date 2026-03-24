@@ -1,8 +1,12 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { teams as initialTeams } from '../data/teams'
 import { participants } from '../data/participants'
 import { espnService } from '../services/espnService'
+
+const route = useRoute()
+const router = useRouter()
 
 const teams = ref([...initialTeams])
 const searchQuery = ref('')
@@ -13,6 +17,19 @@ const isLoadingSchedule = ref(false)
 onMounted(async () => {
    // Quietly update team wins silently in the background
    espnService.updateTeamsWithLiveStats(teams.value)
+   
+   // Handle Deep-Linked routing via Vue Router Queries
+   if (route.query.teamId) {
+      const activeTeam = teams.value.find(t => String(t.espnId) === String(route.query.teamId))
+      if (activeTeam) selectTeam(activeTeam)
+   }
+})
+
+watch(() => route.query.teamId, (newId) => {
+   if (newId) {
+      const activeTeam = teams.value.find(t => String(t.espnId) === String(newId))
+      if (activeTeam) selectTeam(activeTeam)
+   }
 })
 
 const filteredTeams = computed(() => {
@@ -37,6 +54,9 @@ const selectTeam = async (team) => {
 const closePanel = () => {
    selectedTeam.value = null
    teamSchedule.value = []
+   
+   // Silently strip the deep-linked parameter off the URL
+   router.replace({ name: 'Teams', query: {} })
 }
 
 // Logic parsers for the modal Game History rows

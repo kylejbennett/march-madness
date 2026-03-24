@@ -1,13 +1,19 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { teams as initialTeams } from '../data/teams'
 import { participants } from '../data/participants'
 import { espnService } from '../services/espnService'
 
+const router = useRouter()
 const viewMode = ref('teams') // 'teams' or 'owners'
 const teams = ref([...initialTeams])
 const isFetching = ref(true)
 const baseR64Matches = ref([])
+
+const goToTeam = (team) => {
+   if (team?.espnId) router.push({ name: 'Teams', query: { teamId: team.espnId } })
+}
 
 onMounted(async () => {
    isFetching.value = true
@@ -31,7 +37,8 @@ const getDisplayName = (team) => {
       const owner = getOwner(team.espnId)
       return team.abbreviation ? `${owner} (${team.abbreviation})` : owner
    }
-   return team.shortDisplayName || team.name
+   // Fallback organically to standard location property or fallback to mapped static string
+   return team.schoolName || team.shortDisplayName || team.name
 }
 
 const resolveWinner = (t1, t2, requiredWins) => {
@@ -68,11 +75,15 @@ const bracketTree = computed(() => {
       const tA = teams.value.find(t=>t.espnId === String(awayId))
       const tB = teams.value.find(t=>t.espnId === String(homeId))
 
-      if (tA && !tA.abbreviation) {
-         tA.abbreviation = game.competitions[0].competitors.find(c=>c.homeAway==='away')?.team?.abbreviation || tA.name.substring(0,3).toUpperCase()
+      if (tA) {
+         const remoteA = game.competitions[0].competitors.find(c=>c.homeAway==='away')?.team
+         tA.abbreviation = tA.abbreviation || remoteA?.abbreviation || tA.name.substring(0,3).toUpperCase()
+         tA.schoolName = tA.schoolName || remoteA?.location || tA.name
       }
-      if (tB && !tB.abbreviation) {
-         tB.abbreviation = game.competitions[0].competitors.find(c=>c.homeAway==='home')?.team?.abbreviation || tB.name.substring(0,3).toUpperCase()
+      if (tB) {
+         const remoteB = game.competitions[0].competitors.find(c=>c.homeAway==='home')?.team
+         tB.abbreviation = tB.abbreviation || remoteB?.abbreviation || tB.name.substring(0,3).toUpperCase()
+         tB.schoolName = tB.schoolName || remoteB?.location || tB.name
       }
       
       if (regionMap[region]) {
@@ -195,7 +206,7 @@ const getRegionChunks = (round, rndIdx) => {
                  
                  <!-- Binary Match Node -->
                  <template v-if="match.length === 2">
-                   <div class="team-slot" :class="{'eliminated': isTeamEliminatedInRound(match[0], rndIdx)}">
+                   <div class="team-slot cursor-pointer hover:bg-white/5 rounded-t" :class="{'eliminated': isTeamEliminatedInRound(match[0], rndIdx)}" @click="goToTeam(match[0])">
                       <div class="flex items-center w-full">
                         <span v-if="match[0]" class="team-seed">{{ match[0].seed }}</span>
                         <img v-if="match[0]?.logo" :src="match[0].logo" class="w-4 h-4 object-contain mr-1.5 drop-shadow-sm" />
@@ -205,7 +216,7 @@ const getRegionChunks = (round, rndIdx) => {
                    
                    <div class="border-b border-glass-border"></div>
                    
-                   <div class="team-slot" :class="{'eliminated': isTeamEliminatedInRound(match[1], rndIdx)}">
+                   <div class="team-slot cursor-pointer hover:bg-white/5 rounded-b" :class="{'eliminated': isTeamEliminatedInRound(match[1], rndIdx)}" @click="goToTeam(match[1])">
                       <div class="flex items-center w-full">
                         <span v-if="match[1]" class="team-seed">{{ match[1].seed }}</span>
                         <img v-if="match[1]?.logo" :src="match[1].logo" class="w-4 h-4 object-contain mr-1.5 drop-shadow-sm" />
@@ -216,7 +227,7 @@ const getRegionChunks = (round, rndIdx) => {
 
                  <!-- Absolute Champion Node Endpoint -->
                  <template v-else>
-                    <div class="champ-slot text-center py-4 flex flex-col items-center justify-center min-h-[50px]">
+                    <div class="champ-slot text-center py-4 flex flex-col items-center justify-center min-h-[50px] cursor-pointer hover:bg-white/5 rounded" @click="goToTeam(match[0])">
                        <div class="text-[0.6rem] text-accent-base font-bold uppercase tracking-widest mb-1.5 opacity-80" v-if="match[0]">2026 CHAMPION</div>
                        <img v-if="match[0]?.logo" :src="match[0].logo" class="w-12 h-12 mb-2 object-contain drop-shadow" />
                        <div class="text-xl font-black truncate px-2 text-zinc-100 uppercase" :class="{'text-accent-base': viewMode==='owners'}">
@@ -248,7 +259,7 @@ const getRegionChunks = (round, rndIdx) => {
 }
 
 .bracket-column {
-  @apply flex flex-col w-[200px] xl:w-[240px];
+  @apply flex flex-col w-[170px] xl:w-[190px];
 }
 
 .round-title {
@@ -275,7 +286,7 @@ const getRegionChunks = (round, rndIdx) => {
 }
 
 .team-name {
-  @apply text-[0.75rem] font-semibold truncate max-w-[130px] text-zinc-200 transition-colors;
+  @apply text-[0.75rem] font-semibold truncate max-w-[105px] xl:max-w-[125px] text-zinc-200 transition-colors;
 }
 
 .team-seed {

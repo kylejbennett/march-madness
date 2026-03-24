@@ -1,16 +1,26 @@
 <script setup>
-defineProps({
+import { useRouter } from 'vue-router'
+
+const props = defineProps({
   team: {
     type: Object,
     required: true
   }
 })
+
+const router = useRouter()
+const goToTeam = () => {
+   if (props.team?.espnId) {
+      router.push({ name: 'Teams', query: { teamId: props.team.espnId } })
+   }
+}
 </script>
 
 <template>
   <div 
-    class="team-row"
+    class="team-row cursor-pointer"
     :class="{ 'is-eliminated': team.eliminated }"
+    @click="goToTeam"
   >
     <div class="team-info">
       <img v-if="team.logo" :src="team.logo" :alt="team.name" class="team-logo" />
