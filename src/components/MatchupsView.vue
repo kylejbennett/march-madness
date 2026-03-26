@@ -64,20 +64,20 @@ const fetchGames = async (dateStr, autoOpenGameId = null) => {
   if (!dateStr) return
   stopPolling()
   isFetching.value = true
-  selectedGame.value = null
-
+  // Don't clear selectedGame here, silent sync happens in watcher
+  
   const espnDateStr = dateStr.replace(/-/g, '')
   const fetchedGames = await espnService.fetchGamesByDate(espnDateStr)
   fetchedGames.sort((a, b) => new Date(a.date) - new Date(b.date))
   games.value = fetchedGames
   isFetching.value = false
 
-  // Auto-open a specific game if requested (deep-link from Teams view)
+  // Auto-open a specific game if requested (deep-link)
   if (autoOpenGameId) {
     const target = fetchedGames.find(g => String(g.id) === String(autoOpenGameId))
-    if (target) selectedGame.value = target
-    // Clean the query params from the URL without re-navigating
-    router.replace({ name: 'Matchups', query: {} })
+    if (target) {
+        selectedGame.value = target
+    }
   }
 
   // Auto-start polling if any games are currently live
@@ -85,11 +85,64 @@ const fetchGames = async (dateStr, autoOpenGameId = null) => {
   if (hasLive) startPolling(dateStr)
 }
 
-onMounted(() => {
+// Sync URL query params with state when they change
+watch([selectedGame, selectedDateInput], ([newGame, newDate]) => {
+  const query = { ...route.query }
+  
+  // Date sync
+  const espnDate = newDate.replace(/-/g, '')
+  if (query.date !== espnDate) {
+    query.date = espnDate
+  }
+  
+  // Game ID sync
+  if (newGame) {
+    if (query.gameId !== String(newGame.id)) {
+      query.gameId = String(newGame.id)
+    }
+  } else {
+    delete query.gameId
+  }
+  
+  // Only push if something actually changed from the current URL
+  if (JSON.stringify(query) !== JSON.stringify(route.query)) {
+     router.replace({ query })
+  }
+})
+
+// Handle back/forward navigation or manual URL edits
+watch(() => route.query, async (newQuery) => {
+  const dateFromURL = newQuery.date ? espnDateToInput(newQuery.date) : null
+  const gameIdFromURL = newQuery.gameId || null
+
+  // If date changed in URL, re-fetch
+  if (dateFromURL && dateFromURL !== selectedDateInput.value) {
+    selectedDateInput.value = dateFromURL
+    // fetchGames is triggered by selectedDateInput watcher
+  }
+
+  // If gameId changed in URL, update selectedGame
+  if (gameIdFromURL) {
+    if (!selectedGame.value || String(selectedGame.value.id) !== String(gameIdFromURL)) {
+      const target = games.value.find(g => String(g.id) === String(gameIdFromURL))
+      if (target) {
+        selectedGame.value = target
+      } else {
+        // If we don't have the game yet (e.g. initial load), it will be handled by fetchGames
+      }
+    }
+  } else {
+    selectedGame.value = null
+  }
+}, { deep: true })
+
+onMounted(async () => {
   const dateParam = route.query.date ? espnDateToInput(route.query.date) : null
   const gameId = route.query.gameId || null
   if (dateParam) selectedDateInput.value = dateParam
-  fetchGames(selectedDateInput.value, gameId)
+  
+  // If we already have the date correct, watcher might not trigger, so call manually
+  await fetchGames(selectedDateInput.value, gameId)
 })
 
 onUnmounted(() => stopPolling())
