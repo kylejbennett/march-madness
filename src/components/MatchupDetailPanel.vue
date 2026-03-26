@@ -1,7 +1,9 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { teams } from '../data/teams'
+
+const isExpanded = ref(false)
 
 const props = defineProps({
   game: { type: Object, required: true },
@@ -157,7 +159,10 @@ const seasonRecord = (competitor) => {
       <div class="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-pointer" @click="emit('close')" />
 
       <!-- Panel -->
-      <div class="relative w-full md:w-[520px] h-full bg-[#0a0a0c] border-l border-glass-border shadow-2xl flex flex-col animate-slide-in">
+      <div 
+        class="relative h-full bg-[#0a0a0c] border-l border-glass-border shadow-2xl flex flex-col animate-slide-in transition-all duration-300"
+        :class="[isExpanded ? 'w-full' : 'w-full md:w-[520px]']"
+      >
 
 
         <!-- ── Header ────────────────────────────────────────────────── -->
@@ -166,7 +171,22 @@ const seasonRecord = (competitor) => {
           <div class="px-4 pt-4 pb-3 flex items-center gap-2">
             <span v-if="roundHeadline" class="text-[0.65rem] font-black uppercase tracking-widest text-accent-base">{{ roundHeadline }}</span>
             <span v-if="broadcasts" class="ml-auto text-[0.65rem] font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">{{ broadcasts }}</span>
-            <button @click="emit('close')" class="ml-2 flex-shrink-0 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+            
+            <!-- Expand Button (Desktop Only) -->
+            <button 
+              @click="isExpanded = !isExpanded" 
+              class="hidden md:flex flex-shrink-0 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors ml-2"
+              title="Toggle Expand"
+            >
+              <svg v-if="!isExpanded" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 4v4m0 0H6m4 0l-5-5m9 5h4m-4 0V4m0 4l5-5M10 20v-4m0 0H6m4 0l-5 5m9-5h4m-4 0v4m0-4l5 5" />
+              </svg>
+            </button>
+
+            <button @click="emit('close')" class="flex-shrink-0 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
