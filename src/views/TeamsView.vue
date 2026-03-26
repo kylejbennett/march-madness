@@ -59,6 +59,12 @@ const closePanel = () => {
    router.replace({ name: 'Teams', query: {} })
 }
 
+const goToMatchup = (game) => {
+   const d = new Date(game.date)
+   const dateStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
+   router.push({ name: 'Matchups', query: { date: dateStr, gameId: game.id } })
+}
+
 // Logic parsers for the modal Game History rows
 const getOpponent = (game, myTeamId) => {
    const comps = game?.competitions?.[0]?.competitors || []
@@ -85,6 +91,14 @@ const getResultString = (game, myTeamId) => {
    if (!myTeam || !otherTeam) return 'FINAL'
    if (myTeam.winner) return `W ${myTeam.score?.displayValue || '0'}-${otherTeam.score?.displayValue || '0'}`
    return `L ${myTeam.score?.displayValue || '0'}-${otherTeam.score?.displayValue || '0'}`
+}
+
+const getLiveScore = (game, myTeamId) => {
+   const comps = game?.competitions?.[0]?.competitors || []
+   const myTeam = comps.find(c => String(c?.team?.id) === String(myTeamId))
+   const otherTeam = comps.find(c => String(c?.team?.id) !== String(myTeamId))
+   if (!myTeam || !otherTeam) return null
+   return { mine: myTeam.score?.displayValue || '0', theirs: otherTeam.score?.displayValue || '0' }
 }
 
 const getRoundHeadline = (game) => {
@@ -210,7 +224,7 @@ const getTeamRecord = () => {
                      <div class="absolute left-[22px] top-1 w-[5px] h-[5px] rounded-full bg-accent-base ring-4 ring-[#0a0a0c] group-hover:scale-150 transition-transform"></div>
                      <h4 class="text-accent-base font-black text-[0.65rem] uppercase tracking-widest mb-3" style="text-shadow: 0 0 10px rgba(147,51,234,0.5);">{{ getRoundHeadline(game) }}</h4>
                      
-                     <div class="bg-zinc-900/50 backdrop-blur-sm border rounded-xl p-4 shadow-lg transition-colors"
+                     <div class="bg-zinc-900/50 backdrop-blur-sm border rounded-xl p-4 shadow-lg transition-colors cursor-pointer" @click="goToMatchup(game)"
                           :class="[
                              isGameComplete(game) 
                                ? (isWinner(game, selectedTeam.espnId) ? 'border-emerald-500/50' : 'border-rose-500/50')
@@ -236,6 +250,12 @@ const getTeamRecord = () => {
                               <div v-else-if="game?.competitions?.[0]?.status?.type?.state === 'in'" class="text-accent-base font-black text-xs animate-pulse bg-accent-base/10 border border-accent-base/20 px-2 py-1 rounded">
                                  LIVE • {{ game?.competitions?.[0]?.status?.displayClock || '0:00' }}
                               </div>
+                               <div v-if="game && game.competitions && game.competitions[0].status.type.state === 'in' && getLiveScore(game, selectedTeam.espnId)"
+                                    class="text-white font-black text-sm mt-1">
+                                  {{ getLiveScore(game, selectedTeam.espnId).mine }}
+                                  <span class="text-zinc-600 font-normal mx-0.5">–</span>
+                                  {{ getLiveScore(game, selectedTeam.espnId).theirs }}
+                               </div>
                               <div v-else class="text-zinc-500 text-[0.65rem] font-bold">
                                  {{ formatTipTime(game?.date) }}
                               </div>

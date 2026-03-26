@@ -1,8 +1,15 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { espnService } from '../services/espnService'
 import { participants } from '../data/participants'
 import MatchupCard from './MatchupCard.vue'
+import MatchupDetailPanel from './MatchupDetailPanel.vue'
+
+const POLL_INTERVAL_MS = 30_000
+
+const route = useRoute()
+const router = useRouter()
 
 const formatDateForInput = (d) => {
   const m = (d.getMonth() + 1).toString().padStart(2, '0')
@@ -10,35 +17,84 @@ const formatDateForInput = (d) => {
   return `${d.getFullYear()}-${m}-${day}`
 }
 
+// Convert YYYYMMDD query param → YYYY-MM-DD for the date input
+const espnDateToInput = (s) => s ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : null
+
 const today = new Date()
 const selectedDateInput = ref(formatDateForInput(today))
 const games = ref([])
 const isFetching = ref(false)
+const selectedGame = ref(null)
+
+let pollTimer = null
 
 const getParticipantForTeam = (espnId) => {
   return participants.find(p => p.teamIds.map(String).includes(String(espnId)))?.name || null
 }
 
-const fetchGames = async (dateStr) => {
+// Silent background refresh — no spinner, panel stays open, selectedGame synced by ID
+const silentRefresh = async (dateStr) => {
   if (!dateStr) return
-  isFetching.value = true
-  
   const espnDateStr = dateStr.replace(/-/g, '')
-  let fetchedGames = await espnService.fetchGamesByDate(espnDateStr)
-  
+  const fetchedGames = await espnService.fetchGamesByDate(espnDateStr)
   fetchedGames.sort((a, b) => new Date(a.date) - new Date(b.date))
-  
+  games.value = fetchedGames
+
+  // Keep the open panel in sync with the fresh game data
+  if (selectedGame.value) {
+    const refreshed = fetchedGames.find(g => g.id === selectedGame.value.id)
+    if (refreshed) selectedGame.value = refreshed
+  }
+
+  // Stop polling once no live games remain
+  const hasLive = fetchedGames.some(g => g.status?.type?.state === 'in')
+  if (!hasLive) stopPolling()
+}
+
+const startPolling = (dateStr) => {
+  stopPolling()
+  pollTimer = setInterval(() => silentRefresh(dateStr), POLL_INTERVAL_MS)
+}
+
+const stopPolling = () => {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+}
+
+const fetchGames = async (dateStr, autoOpenGameId = null) => {
+  if (!dateStr) return
+  stopPolling()
+  isFetching.value = true
+  selectedGame.value = null
+
+  const espnDateStr = dateStr.replace(/-/g, '')
+  const fetchedGames = await espnService.fetchGamesByDate(espnDateStr)
+  fetchedGames.sort((a, b) => new Date(a.date) - new Date(b.date))
   games.value = fetchedGames
   isFetching.value = false
+
+  // Auto-open a specific game if requested (deep-link from Teams view)
+  if (autoOpenGameId) {
+    const target = fetchedGames.find(g => String(g.id) === String(autoOpenGameId))
+    if (target) selectedGame.value = target
+    // Clean the query params from the URL without re-navigating
+    router.replace({ name: 'Matchups', query: {} })
+  }
+
+  // Auto-start polling if any games are currently live
+  const hasLive = fetchedGames.some(g => g.status?.type?.state === 'in')
+  if (hasLive) startPolling(dateStr)
 }
 
 onMounted(() => {
-  fetchGames(selectedDateInput.value)
+  const dateParam = route.query.date ? espnDateToInput(route.query.date) : null
+  const gameId = route.query.gameId || null
+  if (dateParam) selectedDateInput.value = dateParam
+  fetchGames(selectedDateInput.value, gameId)
 })
 
-watch(selectedDateInput, (newVal) => {
-  fetchGames(newVal)
-})
+onUnmounted(() => stopPolling())
+
+watch(selectedDateInput, (newVal) => fetchGames(newVal))
 
 const changeDay = (days) => {
   const d = new Date(selectedDateInput.value + 'T12:00:00')
@@ -94,8 +150,19 @@ const changeDay = (days) => {
         :key="game.id" 
         :game="game"
         :get-participant="getParticipantForTeam"
+        @select="selectedGame = $event"
       />
     </div>
+
+    <!-- Matchup Detail Panel -->
+    <Transition name="fade">
+      <MatchupDetailPanel
+        v-if="selectedGame"
+        :game="selectedGame"
+        :get-participant="getParticipantForTeam"
+        @close="selectedGame = null"
+      />
+    </Transition>
   </div>
 </template>
 

@@ -1,7 +1,7 @@
 <script setup>
 import TeamRow from './TeamRow.vue'
 
-defineProps({
+const props = defineProps({
   participant: {
     type: Object,
     required: true
@@ -19,6 +19,13 @@ defineProps({
     default: false
   }
 })
+
+const ordinal = (n) => {
+  if (!n) return ''
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
 </script>
 
 <template>
@@ -30,7 +37,7 @@ defineProps({
           class="rank-badge" 
           :class="rankClass"
         >
-          {{ rank }}
+          {{ ordinal(rank) }}
         </div>
         <h2 class="participant-name">{{ participant.name }}</h2>
       </div>
@@ -88,7 +95,7 @@ defineProps({
 }
 
 .rank-badge {
-  @apply inline-flex items-center justify-center w-6 h-6 rounded-sm font-semibold text-sm bg-white/5 mr-3 text-zinc-400;
+  @apply inline-flex items-center justify-center min-w-[2.5rem] px-1.5 h-6 rounded-sm font-semibold text-sm bg-white/5 mr-3 text-zinc-400;
 }
 
 /* Hardcode specific rank backgrounds just like the older CSS */
