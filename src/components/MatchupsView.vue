@@ -154,10 +154,18 @@ const changeDay = (days) => {
   d.setDate(d.getDate() + days)
   selectedDateInput.value = formatDateForInput(d)
 }
+
+// ── Swipe-to-change-date (mobile) ──────────────────────────────────────────
+let touchStartX = 0
+const onTouchStart = (e) => { touchStartX = e.touches[0].clientX }
+const onTouchEnd = (e) => {
+  const delta = touchStartX - e.changedTouches[0].clientX
+  if (Math.abs(delta) > 50) changeDay(delta > 0 ? 1 : -1)
+}
 </script>
 
 <template>
-  <div class="matchups-container">
+  <div class="matchups-container" @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
     <!-- Date Navigation Header -->
     <header class="date-header glass-panel mx-auto">
       <button @click="changeDay(-1)" class="nav-arrow">
@@ -166,7 +174,7 @@ const changeDay = (days) => {
         </svg>
       </button>
       
-      <div class="relative flex items-center justify-center group cursor-pointer lg:w-48 overflow-hidden">
+      <div class="relative flex items-center justify-center group cursor-pointer lg:w-48">
         <input 
           type="date" 
           v-model="selectedDateInput"
