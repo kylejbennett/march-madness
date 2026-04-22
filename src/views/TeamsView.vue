@@ -89,8 +89,12 @@ const getResultString = (game, myTeamId) => {
    const otherTeam = comps.find(c => String(c?.team?.id) !== String(myTeamId))
    
    if (!myTeam || !otherTeam) return 'FINAL'
-   if (myTeam.winner) return `W ${myTeam.score?.displayValue || '0'}-${otherTeam.score?.displayValue || '0'}`
-   return `L ${myTeam.score?.displayValue || '0'}-${otherTeam.score?.displayValue || '0'}`
+   
+   const myScore = myTeam.score?.displayValue || myTeam.score || '0'
+   const otherScore = otherTeam.score?.displayValue || otherTeam.score || '0'
+   
+   if (myTeam.winner) return `W ${myScore}-${otherScore}`
+   return `L ${myScore}-${otherScore}`
 }
 
 const getLiveScore = (game, myTeamId) => {
@@ -98,7 +102,10 @@ const getLiveScore = (game, myTeamId) => {
    const myTeam = comps.find(c => String(c?.team?.id) === String(myTeamId))
    const otherTeam = comps.find(c => String(c?.team?.id) !== String(myTeamId))
    if (!myTeam || !otherTeam) return null
-   return { mine: myTeam.score?.displayValue || '0', theirs: otherTeam.score?.displayValue || '0' }
+   
+   const myScore = myTeam.score?.displayValue || myTeam.score || '0'
+   const otherScore = otherTeam.score?.displayValue || otherTeam.score || '0'
+   return { mine: myScore, theirs: otherScore }
 }
 
 const getRoundHeadline = (game) => {

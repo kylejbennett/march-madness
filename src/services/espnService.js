@@ -1,3 +1,6 @@
+let tournamentGamesCache = [];
+let activeUpdatePromise = null;
+
 export const espnService = {
   /**
    * Fetches all tournament games and tallies the wins and losses
@@ -6,7 +9,8 @@ export const espnService = {
    * @param {Array} teams - The array of team objects to update
    */
   async updateTeamsWithLiveStats(teams) {
-    try {
+    const doUpdate = async () => {
+      try {
       // RESET ALL TEAM STATS TO ZERO! 
       // Because this service is repeatedly executed across various uncoupled Vue Router components (Overview, Bracket),
       // we absolutely must wipe the singleton state. Otherwise, navigating back and forth infinitely compounds team wins on top of themselves!
@@ -15,6 +19,8 @@ export const espnService = {
          t.losses = 0;
          t.eliminated = false;
       });
+      
+      tournamentGamesCache = [];
 
       const startDate = new Date('2026-03-19');
       // Set end date to today (or the end of the tournament if the season is over)
@@ -55,6 +61,8 @@ export const espnService = {
           const isFirstFour = notesText.includes("First Four");
 
           if (event.season.type === 3 && isNCAA && !isFirstFour) {
+            tournamentGamesCache.push(event);
+            
             const isCompleted = event.status.type.completed;
             const comps = event.competitions[0].competitors;
 
@@ -79,9 +87,13 @@ export const espnService = {
         });
       });
       
-    } catch (err) {
-      console.error("Failed to fetch live ESPN stats:", err);
-    }
+      } catch (err) {
+        console.error("Failed to fetch live ESPN stats:", err);
+      }
+    };
+    
+    activeUpdatePromise = doUpdate();
+    await activeUpdatePromise;
   },
 
   /**
@@ -112,22 +124,18 @@ export const espnService = {
    */
   async fetchTeamSchedule(espnId) {
     try {
-      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/${espnId}/schedule`;
-      const res = await fetch(url);
-      const data = await res.json();
+      if (activeUpdatePromise) {
+        await activeUpdatePromise;
+      }
       
-      if (!data.events) return [];
-      
-      // Filter for chronological NCAA postseason games only (excluding First Four edge cases and Conf Tourneys)
-      return data.events.filter(e => {
-        const notesObj = e.competitions?.[0]?.notes;
-        const notesStr = notesObj ? notesObj.map(n => n.headline).join(" ") : "";
-        const isNCAA = notesStr.includes("NCAA");
-        const isFirstFour = notesStr.includes("First Four");
-        
-        // Ensure it's legitimately tracking the 64-team matrix
-        return isNCAA && !isFirstFour;
+      // Filter chronological NCAA postseason games from our built cache
+      // Sort to ensure chronologic order just in case Promise.all returned them misaligned
+      const games = tournamentGamesCache.filter(e => {
+        const comps = e.competitions?.[0]?.competitors || [];
+        return comps.some(c => String(c.team.id) === String(espnId));
       });
+      
+      return games.sort((a,b) => new Date(a.date) - new Date(b.date));
     } catch (err) {
       console.error(`Failed to fetch team schedule for [${espnId}]:`, err);
       return [];
