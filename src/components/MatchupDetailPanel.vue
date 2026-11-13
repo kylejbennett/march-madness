@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { teams } from '../data/teams'
+import { useSeason } from '../composables/useSeason'
 
+const { currentSeason } = useSeason()
 const isExpanded = ref(false)
 
 const props = defineProps({
@@ -41,7 +42,7 @@ const ownerClass = (competitor) => {
 }
 
 // ─── Seeds ─────────────────────────────────────────────────────────────────
-const getSeed = (espnId) => teams.find(t => String(t.espnId) === String(espnId))?.seed
+const getSeed = (espnId) => currentSeason.value.teams.find(t => String(t.espnId) === String(espnId))?.seed
 
 // ─── Meta ──────────────────────────────────────────────────────────────────
 const roundHeadline = computed(() => {

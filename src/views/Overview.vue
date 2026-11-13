@@ -1,30 +1,41 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { espnService } from '../services/espnService'
-import { teams as initialTeams } from '../data/teams'
-import { participants as initialParticipants } from '../data/participants'
+import { useSeason } from '../composables/useSeason'
 import ParticipantCard from '../components/ParticipantCard.vue'
 
-const teams = ref([...initialTeams])
-const participants = ref([...initialParticipants])
+const { currentSeason } = useSeason()
+
+const teams = ref([])
+const participants = ref([])
 const isFetching = ref(true)
 const sortMode = ref('draft') // 'draft' or 'rank'
 
-onMounted(async () => {
+const loadSeason = async (season) => {
+  teams.value = season.teams.map(t => ({ ...t }))
+  participants.value = season.participants.map(p => ({ ...p, teamIds: [...p.teamIds] }))
+
+  if (teams.value.length === 0) {
+    isFetching.value = false
+    return
+  }
+
   isFetching.value = true
-  await espnService.updateTeamsWithLiveStats(teams.value)
-  
+  await espnService.updateTeamsWithLiveStats(teams.value, season)
+
   participants.value.forEach(p => {
     p.totalWins = p.teamIds.reduce((sum, espnId) => {
       const team = teams.value.find(t => t.espnId === espnId)
       return sum + (team ? team.wins : 0)
     }, 0)
-    
+
     p.teams = p.teamIds.map(espnId => teams.value.find(t => t.espnId === espnId)).filter(Boolean)
   })
-  
+
   isFetching.value = false
-})
+}
+
+watch(currentSeason, loadSeason, { immediate: true })
 
 const participantRanks = computed(() => {
   if (isFetching.value) return {}
@@ -77,8 +88,18 @@ const getRankClass = (rank) => {
       </div>
     </div>
 
+    <!-- Empty state for upcoming / unpopulated season -->
+    <div v-if="!isFetching && participants.length === 0" class="text-center py-20 px-4">
+      <div class="max-w-md mx-auto bg-glass-bg border border-glass-border rounded-2xl p-8">
+        <p class="text-lg font-bold text-white mb-2">{{ currentSeason.label }} Pool Not Yet Drafted</p>
+        <p class="text-sm text-zinc-400">
+          Teams and draft picks will appear here once the {{ currentSeason.label }} NCAA Tournament bracket is announced and the pool draft is complete.
+        </p>
+      </div>
+    </div>
+
     <!-- Active Responsive Cards -->
-    <div class="standings-grid px-4 md:px-0 relative z-0">
+    <div v-else class="standings-grid px-4 md:px-0 relative z-0">
       <ParticipantCard
         v-for="p in sortedParticipants" 
         :key="p.id"

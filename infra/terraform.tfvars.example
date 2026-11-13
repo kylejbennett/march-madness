@@ -1,0 +1,13 @@
+aws_region   = "us-east-1"
+project_name = "march-madness-pool"
+
+# Optional: set a custom globally unique bucket name, or leave commented to auto-generate
+# bucket_name = "my-march-madness-pool-data"
+
+# Restrict to your Amplify domain (and localhost for dev), or keep ["*"] during initial setup
+allowed_origins = [
+  "*"
+]
+
+# Required password to save draft changes from the UI
+admin_password = "replace-with-a-strong-password"

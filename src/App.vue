@@ -1,5 +1,13 @@
 <script setup>
+import { onMounted } from 'vue'
 import NavBar from './components/NavBar.vue'
+import { useSeason } from './composables/useSeason'
+
+const { currentSeason, initSeasons } = useSeason()
+
+onMounted(() => {
+  initSeasons()
+})
 </script>
 
 <template>
@@ -9,7 +17,7 @@ import NavBar from './components/NavBar.vue'
     <header class="pool-header">
       <h1 class="pool-title">8 Team Pool</h1>
       <p class="pool-subtitle">
-        Live Standings & Bracket Updates
+        {{ currentSeason.label }} Tournament · Live Standings & Bracket Updates
       </p>
     </header>
 

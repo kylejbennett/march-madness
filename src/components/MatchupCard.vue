@@ -1,9 +1,10 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { teams } from '../data/teams'
+import { useSeason } from '../composables/useSeason'
 
 const router = useRouter()
+const { currentSeason } = useSeason()
 const props = defineProps({
   game: {
     type: Object,
@@ -28,7 +29,7 @@ const statusState = computed(() => props.game.status?.type?.state || 'pre')
 const statusDetail = computed(() => props.game.status?.type?.detail || '')
 
 const getSeed = (espnId) => {
-   return teams.find(t => String(t.espnId) === String(espnId))?.seed
+   return currentSeason.value.teams.find(t => String(t.espnId) === String(espnId))?.seed
 }
 
 const goToTeam = (espnId) => {

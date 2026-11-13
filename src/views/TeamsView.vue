@@ -1,29 +1,37 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { teams as initialTeams } from '../data/teams'
-import { participants } from '../data/participants'
 import { espnService } from '../services/espnService'
+import { useSeason } from '../composables/useSeason'
 
 const route = useRoute()
 const router = useRouter()
+const { currentSeason } = useSeason()
 
-const teams = ref([...initialTeams])
+const teams = ref([])
 const searchQuery = ref('')
 const selectedTeam = ref(null)
 const teamSchedule = ref([])
 const isLoadingSchedule = ref(false)
 
-onMounted(async () => {
+const loadTeamsForSeason = async (season) => {
+   selectedTeam.value = null
+   teamSchedule.value = []
+   teams.value = season.teams.map(t => ({ ...t }))
+
+   if (teams.value.length === 0) return
+
    // Quietly update team wins silently in the background
-   espnService.updateTeamsWithLiveStats(teams.value)
-   
+   espnService.updateTeamsWithLiveStats(teams.value, season)
+
    // Handle Deep-Linked routing via Vue Router Queries
    if (route.query.teamId) {
       const activeTeam = teams.value.find(t => String(t.espnId) === String(route.query.teamId))
       if (activeTeam) selectTeam(activeTeam)
    }
-})
+}
+
+watch(currentSeason, loadTeamsForSeason, { immediate: true })
 
 watch(() => route.query.teamId, (newId) => {
    if (newId) {
@@ -39,7 +47,7 @@ const filteredTeams = computed(() => {
 })
 
 const getOwner = (espnId) => {
-  return participants.find(p => p.teamIds.map(String).includes(String(espnId)))?.name || 'Unowned'
+  return currentSeason.value.participants.find(p => p.teamIds.map(String).includes(String(espnId)))?.name || 'Unowned'
 }
 
 const selectTeam = async (team) => {
@@ -47,7 +55,7 @@ const selectTeam = async (team) => {
    isLoadingSchedule.value = true
    
    // Ping ESPN strictly for their chronological tournament matchups
-   teamSchedule.value = await espnService.fetchTeamSchedule(team.espnId)
+   teamSchedule.value = await espnService.fetchTeamSchedule(team.espnId, currentSeason.value.year)
    isLoadingSchedule.value = false
 }
 
@@ -161,8 +169,18 @@ const getTeamRecord = () => {
       </div>
     </div>
 
+    <!-- Empty State -->
+    <div v-if="teams.length === 0" class="text-center py-20 px-4">
+      <div class="max-w-md mx-auto bg-glass-bg border border-glass-border rounded-2xl p-8">
+        <p class="text-lg font-bold text-white mb-2">{{ currentSeason.label }} Teams Not Yet Available</p>
+        <p class="text-sm text-zinc-400">
+          The 64 tournament teams will appear here once the {{ currentSeason.label }} NCAA Tournament bracket is announced.
+        </p>
+      </div>
+    </div>
+
     <!-- Master Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 px-4 md:px-0 relative z-10 pb-20">
+    <div v-else class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 px-4 md:px-0 relative z-10 pb-20">
       <div v-for="team in filteredTeams" :key="team.id" @click="selectTeam(team)"
            class="team-card group cursor-pointer" :class="{'opacity-40 grayscale hover:grayscale-0 hover:opacity-100': team.eliminated && !searchQuery}">
         

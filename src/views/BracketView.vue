@@ -1,13 +1,14 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { teams as initialTeams } from '../data/teams'
-import { participants } from '../data/participants'
 import { espnService } from '../services/espnService'
+import { useSeason } from '../composables/useSeason'
 
 const router = useRouter()
+const { currentSeason } = useSeason()
+
 const viewMode = ref('teams') // 'teams' or 'owners'
-const teams = ref([...initialTeams])
+const teams = ref([])
 const isFetching = ref(true)
 const baseR64Matches = ref([])
 
@@ -15,20 +16,31 @@ const goToTeam = (team) => {
    if (team?.espnId) router.push({ name: 'Teams', query: { teamId: team.espnId } })
 }
 
-onMounted(async () => {
+const loadBracket = async (season) => {
+   teams.value = season.teams.map(t => ({ ...t }))
+   baseR64Matches.value = []
+
+   if (teams.value.length === 0) {
+      isFetching.value = false
+      return
+   }
+
    isFetching.value = true
-   await espnService.updateTeamsWithLiveStats(teams.value)
-   
+   await espnService.updateTeamsWithLiveStats(teams.value, season)
+
    // Fetch EXACT R64 tree from ESPN schedule dates to get absolute truth regions
-   const r64_1 = await espnService.fetchGamesByDate('20260319')
-   const r64_2 = await espnService.fetchGamesByDate('20260320')
-   baseR64Matches.value = [...r64_1, ...r64_2]
+   const r64Results = await Promise.all(
+      (season.r64Dates || []).map(d => espnService.fetchGamesByDate(d))
+   )
+   baseR64Matches.value = r64Results.flat()
 
    isFetching.value = false
-})
+}
+
+watch(currentSeason, loadBracket, { immediate: true })
 
 const getOwner = (espnId) => {
-  return participants.find(p => p.teamIds.map(String).includes(String(espnId)))?.name || 'Unowned'
+  return currentSeason.value.participants.find(p => p.teamIds.map(String).includes(String(espnId)))?.name || 'Unowned'
 }
 
 const getDisplayName = (team) => {
@@ -51,7 +63,7 @@ const isTeamEliminatedInRound = (team, rndIdx) => {
    return team?.eliminated && team?.wins === rndIdx;
 }
 
-const regionOrder = ['East', 'South', 'West', 'Midwest']
+const regionOrder = computed(() => currentSeason.value.regionOrder || ['East', 'South', 'West', 'Midwest'])
 
 // Dynamically compute the 7 columns of the massive tournament tree!
 const bracketTree = computed(() => {
@@ -95,7 +107,7 @@ const bracketTree = computed(() => {
   const standardSeedOrder = [1, 8, 5, 4, 6, 3, 7, 2]
   const flatMatches = []
   
-  regionOrder.forEach(regionName => {
+  regionOrder.value.forEach(regionName => {
      const regionMatches = regionMap[regionName]
      standardSeedOrder.forEach(targetSeed => {
          const match = regionMatches.find(m => (m[0] && m[0].seed === targetSeed) || (m[1] && m[1].seed === targetSeed))
@@ -182,6 +194,15 @@ const getRegionChunks = (round, rndIdx) => {
        <div class="w-12 h-12 border-4 border-accent-base/20 border-t-accent-base rounded-full animate-spin"></div>
     </div>
 
+    <div v-else-if="teams.length === 0" class="text-center py-20 px-4">
+      <div class="max-w-md mx-auto bg-glass-bg border border-glass-border rounded-2xl p-8">
+        <p class="text-lg font-bold text-white mb-2">{{ currentSeason.label }} Bracket Not Yet Available</p>
+        <p class="text-sm text-zinc-400">
+          The bracket will populate once the {{ currentSeason.label }} NCAA Tournament teams and Round of 64 matchups are announced.
+        </p>
+      </div>
+    </div>
+
     <div v-else class="bracket-viewer">
       <div class="flex gap-6 pb-12 w-max mx-auto px-4 md:px-0">
         
@@ -228,7 +249,7 @@ const getRegionChunks = (round, rndIdx) => {
                  <!-- Absolute Champion Node Endpoint -->
                  <template v-else>
                     <div class="champ-slot text-center py-4 flex flex-col items-center justify-center min-h-[50px] cursor-pointer hover:bg-white/5 rounded" @click="goToTeam(match[0])">
-                       <div class="text-[0.6rem] text-accent-base font-bold uppercase tracking-widest mb-1.5 opacity-80" v-if="match[0]">2026 CHAMPION</div>
+                       <div class="text-[0.6rem] text-accent-base font-bold uppercase tracking-widest mb-1.5 opacity-80" v-if="match[0]">{{ currentSeason.label }} CHAMPION</div>
                        <img v-if="match[0]?.logo" :src="match[0].logo" class="w-12 h-12 mb-2 object-contain drop-shadow" />
                        <div class="text-xl font-black truncate px-2 text-zinc-100 uppercase" :class="{'text-accent-base': viewMode==='owners'}">
                           {{ getDisplayName(match[0]) }}

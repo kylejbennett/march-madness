@@ -12,13 +12,11 @@ This is a Vue 3 application built with the Composition API and Vite. Its primary
 
 ## Current State & Completed Features
 - **Application Scaffold:** Initialized base Vue 3 + Vite application. Configured `npm run dev` to auto-open the browser.
-- **Data Architecture:** Created data structures for the hard-coded pool in `src/data/teams.js` and `src/data/participants.js`.
-- **Dynamic Fetching:** Wrote `fetchTeams.js` to initially generate the 64 tournament teams using ESPN APIs. Built Vue's `espnService.js` to pull live scoreboard updates every time the app loads and reliably tally wins and eliminations.
-- **Draft Board Mapping:** Read the physically written draft board image and perfectly mapped all 64 teams to the 8 participants via ESPN IDs in `participants.js`.
-- **User Interface:** Constructed a highly modern, responsive CSS-Grid based dashboard using Tailwind CSS. 
-  - Segmented the app cleanly into `App.vue`, `ParticipantCard.vue`, and `TeamRow.vue`.
-  - Implemented dynamic logic to handle multi-way Rank Ties perfectly.
-  - Used hand-drawn custom fonts to convert raw win-numbers into authentic hash marks (tally marks) locally per team.
+- **Multi-Season Data Architecture:** Refactored pool data into season-keyed modules under `src/data/seasons/` (`2026.js`, `2027.js`, `index.js`) with a shared `useSeason` composable (`src/composables/useSeason.js`) and a season switcher in `NavBar.vue`. The 2026 pool is preserved as a completed archive while 2027 is staged as an upcoming season.
+- **Season-Aware ESPN Fetching:** Updated `espnService.js` to bound date ranges to each season's `startDate`/`endDate`, cache games per season, and skip pre-tournament fetches. Parameterized `scripts/fetchTeams.js` (`npm run fetch-teams`) to generate year-specific team files with NCAA/non-First-Four filtering.
+- **Dynamic Fetching & Views:** `Overview.vue`, `BracketView.vue`, `MatchupsView.vue`, `TeamsView.vue`, `MatchupCard.vue`, and `MatchupDetailPanel.vue` all reactively render the selected season and display clean empty states for upcoming unpopulated seasons.
+- **Draft Board Mapping:** Read the physically written draft board image and perfectly mapped all 64 teams for 2026 to the 8 participants via ESPN IDs in `src/data/participants.js`.
+- **User Interface:** Constructed a highly modern, responsive CSS-Grid based dashboard using Tailwind CSS with dynamic multi-way rank ties and hand-drawn tally marks.
 
 ## Planned Features / Upcoming Tasks
 *(The MVP scope is currently fully complete! Any future features should be mapped here before development.)*

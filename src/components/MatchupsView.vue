@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { espnService } from '../services/espnService'
-import { participants } from '../data/participants'
+import { useSeason } from '../composables/useSeason'
 import MatchupCard from './MatchupCard.vue'
 import MatchupDetailPanel from './MatchupDetailPanel.vue'
 
@@ -10,6 +10,7 @@ const POLL_INTERVAL_MS = 30_000
 
 const route = useRoute()
 const router = useRouter()
+const { currentSeason } = useSeason()
 
 const formatDateForInput = (d) => {
   const m = (d.getMonth() + 1).toString().padStart(2, '0')
@@ -20,8 +21,18 @@ const formatDateForInput = (d) => {
 // Convert YYYYMMDD query param → YYYY-MM-DD for the date input
 const espnDateToInput = (s) => s ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : null
 
-const today = new Date()
-const selectedDateInput = ref(formatDateForInput(today))
+const getDefaultDateForSeason = (season) => {
+  const todayStr = formatDateForInput(new Date())
+  if (season.status === 'completed' || todayStr > season.endDate) {
+    return season.defaultMatchupDate || season.endDate
+  }
+  if (todayStr < season.startDate) {
+    return season.startDate
+  }
+  return todayStr
+}
+
+const selectedDateInput = ref(getDefaultDateForSeason(currentSeason.value))
 const games = ref([])
 const isFetching = ref(false)
 const selectedGame = ref(null)
@@ -29,7 +40,7 @@ const selectedGame = ref(null)
 let pollTimer = null
 
 const getParticipantForTeam = (espnId) => {
-  return participants.find(p => p.teamIds.map(String).includes(String(espnId)))?.name || null
+  return currentSeason.value.participants.find(p => p.teamIds.map(String).includes(String(espnId)))?.name || null
 }
 
 // Silent background refresh — no spinner, panel stays open, selectedGame synced by ID
@@ -148,6 +159,16 @@ onMounted(async () => {
 onUnmounted(() => stopPolling())
 
 watch(selectedDateInput, (newVal) => fetchGames(newVal))
+
+watch(currentSeason, (newSeason) => {
+  selectedGame.value = null
+  const nextDate = getDefaultDateForSeason(newSeason)
+  if (selectedDateInput.value !== nextDate) {
+    selectedDateInput.value = nextDate
+  } else {
+    fetchGames(nextDate)
+  }
+})
 
 const changeDay = (days) => {
   const d = new Date(selectedDateInput.value + 'T12:00:00')

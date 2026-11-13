@@ -1,13 +1,25 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
+import { useSeason } from '../composables/useSeason'
 
 const route = useRoute()
 const router = useRouter()
+const { selectedYear, availableSeasons, setSeason } = useSeason()
 
-const tabs = ['Overview', 'Matchups', 'Bracket', 'Teams']
+const tabs = ['Overview', 'Matchups', 'Bracket', 'Teams', 'Draft']
 
 const navigate = (tab) => {
   router.push({ name: tab })
+}
+
+const handleSeasonChange = (event) => {
+  const year = Number(event.target.value)
+  if (year === selectedYear.value) return
+  setSeason(year)
+  // Clear season-specific query params (e.g. date, gameId, teamId) on season switch
+  if (Object.keys(route.query).length > 0) {
+    router.replace({ name: route.name, query: {} })
+  }
 }
 </script>
 
@@ -27,6 +39,27 @@ const navigate = (tab) => {
           {{ tab }}
         </button>
       </div>
+
+      <div class="season-select-wrapper">
+        <select
+          :value="selectedYear"
+          aria-label="Tournament Season"
+          class="season-select"
+          @change="handleSeasonChange"
+        >
+          <option
+            v-for="s in availableSeasons"
+            :key="s.year"
+            :value="s.year"
+            class="bg-zinc-900 text-zinc-100"
+          >
+            {{ s.label }}{{ s.status === 'upcoming' ? ' (Upcoming)' : '' }}
+          </option>
+        </select>
+        <svg class="season-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
     </div>
   </nav>
 </template>
@@ -45,7 +78,7 @@ const navigate = (tab) => {
 }
 
 .tabs-wrapper {
-  @apply grid grid-cols-4 sm:flex sm:items-center sm:justify-center w-full flex-1 gap-1 sm:gap-6;
+  @apply grid grid-cols-5 sm:flex sm:items-center sm:justify-center w-full flex-1 gap-1 sm:gap-6;
 }
 
 .nav-tab {
@@ -54,5 +87,17 @@ const navigate = (tab) => {
 
 .active-tab {
   @apply bg-accent-base/10 text-accent-base shadow-[inset_0_0_20px_rgba(147,51,234,0.15)] ring-1 ring-accent-base/30;
+}
+
+.season-select-wrapper {
+  @apply relative ml-2 sm:ml-4 flex items-center flex-shrink-0;
+}
+
+.season-select {
+  @apply appearance-none bg-black/50 border border-glass-border rounded-full pl-3 sm:pl-4 pr-7 sm:pr-8 py-1.5 text-xs sm:text-sm font-bold tracking-wider text-zinc-200 cursor-pointer transition-all hover:border-accent-base/50 focus:outline-none focus:ring-1 focus:ring-accent-base;
+}
+
+.season-chevron {
+  @apply pointer-events-none absolute right-2.5 w-3.5 h-3.5 text-zinc-400;
 }
 </style>
