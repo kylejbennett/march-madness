@@ -45,6 +45,17 @@ export function useSeason() {
     return seasonMap.value[selectedYear.value] || getBundledSeason(selectedYear.value)
   })
 
+  const historicalParticipantNames = computed(() => {
+    const names = new Set()
+    Object.values(seasonMap.value).forEach(season => {
+      ;(season?.participants || []).forEach(p => {
+        const trimmed = p?.name?.trim()
+        if (trimmed) names.add(trimmed)
+      })
+    })
+    return Array.from(names).sort((a, b) => a.localeCompare(b))
+  })
+
   const isSeasonReady = computed(() => (currentSeason.value?.teams?.length || 0) > 0)
 
   const initSeasons = async () => {
@@ -129,6 +140,7 @@ export function useSeason() {
   return {
     selectedYear,
     currentSeason,
+    historicalParticipantNames,
     isSeasonReady,
     isLoadingSeason,
     availableSeasons,

@@ -1,9 +1,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useSeason } from '../composables/useSeason'
-import { season2026 } from '../data/seasons/2026'
 
-const { currentSeason, saveSeason, isRemoteWriteEnabled } = useSeason()
+const { currentSeason, historicalParticipantNames, saveSeason, isRemoteWriteEnabled } = useSeason()
 
 const draftParticipants = ref([])
 const selectedParticipantIdx = ref(0)
@@ -11,6 +10,7 @@ const newParticipantName = ref('')
 const teamSearch = ref('')
 const hideDrafted = ref(true)
 const adminPassword = ref(sessionStorage.getItem('pool_admin_password') || '')
+const isEditing = ref(false)
 const isSaving = ref(false)
 const saveMessage = ref('')
 const saveError = ref('')
@@ -22,8 +22,13 @@ const syncFromSeason = (season) => {
     teamIds: Array.isArray(p.teamIds) ? p.teamIds.map(String) : [],
   }))
   selectedParticipantIdx.value = 0
+  isEditing.value = false
   saveMessage.value = ''
   saveError.value = ''
+}
+
+const cancelEditing = () => {
+  syncFromSeason(currentSeason.value)
 }
 
 watch(currentSeason, syncFromSeason, { immediate: true })
@@ -62,16 +67,37 @@ const filteredTeams = computed(() => {
     })
 })
 
-const addParticipant = () => {
-  const name = newParticipantName.value.trim()
+const addParticipantByName = (rawName) => {
+  const name = rawName.trim()
   if (!name) return
+  const alreadyAdded = draftParticipants.value.some(
+    p => p.name.trim().toLowerCase() === name.toLowerCase()
+  )
+  if (alreadyAdded) return
   draftParticipants.value.push({
     id: draftParticipants.value.length + 1,
     name,
     teamIds: [],
   })
-  newParticipantName.value = ''
   selectedParticipantIdx.value = draftParticipants.value.length - 1
+}
+
+const addParticipant = () => {
+  addParticipantByName(newParticipantName.value)
+  newParticipantName.value = ''
+}
+
+const availablePastParticipants = computed(() => {
+  const currentNames = new Set(
+    draftParticipants.value.map(p => p.name.trim().toLowerCase()).filter(Boolean)
+  )
+  return historicalParticipantNames.value.filter(
+    name => !currentNames.has(name.toLowerCase())
+  )
+})
+
+const addAllPastParticipants = () => {
+  availablePastParticipants.value.forEach(name => addParticipantByName(name))
 }
 
 const removeParticipant = (idx) => {
@@ -95,15 +121,6 @@ const moveParticipant = (idx, direction) => {
   } else if (selectedParticipantIdx.value === targetIdx) {
     selectedParticipantIdx.value = idx
   }
-}
-
-const copy2026Participants = () => {
-  draftParticipants.value = season2026.participants.map((p, idx) => ({
-    id: idx + 1,
-    name: p.name,
-    teamIds: [],
-  }))
-  selectedParticipantIdx.value = 0
 }
 
 const assignTeam = (team) => {
@@ -146,6 +163,7 @@ const handleSaveToS3 = async () => {
     const payload = buildSeasonPayload()
     await saveSeason(payload, adminPassword.value)
     sessionStorage.setItem('pool_admin_password', adminPassword.value)
+    isEditing.value = false
     saveMessage.value = `Saved ${payload.label} season to S3.`
   } catch (err) {
     saveError.value = err.message || 'Failed to save to S3.'
@@ -184,39 +202,54 @@ const handleDownloadJson = () => {
 
       <div class="flex flex-wrap items-center gap-3">
         <button
+          v-if="!isEditing"
           type="button"
-          class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-zinc-200 border border-glass-border transition-all"
-          @click="copy2026Participants"
+          class="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-glass-border transition-all"
+          title="Edit Draft"
+          aria-label="Edit Draft"
+          @click="isEditing = true"
         >
-          Copy 2026 Names
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
         </button>
 
-        <button
-          type="button"
-          class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-zinc-200 border border-glass-border transition-all"
-          @click="handleDownloadJson"
-        >
-          Download JSON
-        </button>
+        <template v-else>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-zinc-200 border border-glass-border transition-all"
+            @click="handleDownloadJson"
+          >
+            Download JSON
+          </button>
 
-        <input
-          v-if="isRemoteWriteEnabled"
-          v-model="adminPassword"
-          type="password"
-          placeholder="Admin password"
-          autocomplete="current-password"
-          class="px-3 py-2 rounded-xl text-xs bg-zinc-900/80 border border-glass-border text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-accent-base w-40"
-        />
+          <input
+            v-if="isRemoteWriteEnabled"
+            v-model="adminPassword"
+            type="password"
+            placeholder="Admin password"
+            autocomplete="current-password"
+            class="px-3 py-2 rounded-xl text-xs bg-zinc-900/80 border border-glass-border text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-accent-base w-40"
+          />
 
-        <button
-          type="button"
-          :disabled="!isRemoteWriteEnabled || !adminPassword || isSaving"
-          class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-accent-base hover:bg-accent-base/90 text-white shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          :title="!isRemoteWriteEnabled ? 'Configure VITE_POOL_API_URL and VITE_POOL_API_KEY to enable cloud save' : (!adminPassword ? 'Enter admin password to save' : '')"
-          @click="handleSaveToS3"
-        >
-          {{ isSaving ? 'Saving...' : 'Save to S3' }}
-        </button>
+          <button
+            type="button"
+            :disabled="!isRemoteWriteEnabled || !adminPassword || isSaving"
+            class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-accent-base hover:bg-accent-base/90 text-white shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            :title="!isRemoteWriteEnabled ? 'Configure VITE_POOL_API_URL and VITE_POOL_API_KEY to enable cloud save' : (!adminPassword ? 'Enter admin password to save' : '')"
+            @click="handleSaveToS3"
+          >
+            {{ isSaving ? 'Saving...' : 'Save to S3' }}
+          </button>
+
+          <button
+            type="button"
+            class="px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-all"
+            @click="cancelEditing"
+          >
+            Cancel
+          </button>
+        </template>
       </div>
     </div>
 
@@ -227,19 +260,19 @@ const handleDownloadJson = () => {
     <div v-if="saveError" class="mb-6 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-medium">
       {{ saveError }}
     </div>
-    <div v-if="!isRemoteWriteEnabled" class="mb-6 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
+    <div v-if="isEditing && !isRemoteWriteEnabled" class="mb-6 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
       Cloud save is disabled because <code class="font-mono">VITE_POOL_API_URL</code> / <code class="font-mono">VITE_POOL_API_KEY</code> are not set. You can still use <strong>Download JSON</strong>.
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       <!-- Left Column: Participants & Draft Order -->
-      <section class="lg:col-span-5 space-y-4">
+      <section :class="isEditing ? 'lg:col-span-5' : 'lg:col-span-12'" class="space-y-4">
         <div class="bg-glass-bg border border-glass-border rounded-2xl p-4">
           <h3 class="text-sm font-bold uppercase tracking-widest text-zinc-300 mb-3">
             Participants &amp; Draft Order
           </h3>
 
-          <form class="flex gap-2 mb-4" @submit.prevent="addParticipant">
+          <form v-if="isEditing" class="flex gap-2 mb-4" @submit.prevent="addParticipant">
             <input
               v-model="newParticipantName"
               type="text"
@@ -254,51 +287,88 @@ const handleDownloadJson = () => {
             </button>
           </form>
 
-          <div v-if="draftParticipants.length === 0" class="text-sm text-zinc-500 py-6 text-center">
-            No participants yet. Add names above or click <strong>Copy 2026 Names</strong>.
+          <!-- Quick Add from Past Pools -->
+          <div v-if="isEditing && availablePastParticipants.length > 0" class="mb-4 p-3 rounded-xl bg-black/25 border border-glass-border">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[0.65rem] font-bold uppercase tracking-widest text-zinc-400">
+                Past Participants
+              </span>
+              <button
+                type="button"
+                class="text-[0.65rem] font-bold uppercase tracking-wider text-accent-base hover:underline"
+                @click="addAllPastParticipants"
+              >
+                Add All
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="name in availablePastParticipants"
+                :key="name"
+                type="button"
+                class="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/5 hover:bg-accent-base/20 hover:text-white hover:border-accent-base/50 text-zinc-300 border border-glass-border transition-all"
+                @click="addParticipantByName(name)"
+              >
+                + {{ name }}
+              </button>
+            </div>
           </div>
 
-          <div class="space-y-3">
+          <div v-if="draftParticipants.length === 0" class="text-sm text-zinc-500 py-6 text-center">
+            No participants yet.
+            <span v-if="isEditing">Select past participants or add a new name above.</span>
+            <span v-else>Click the edit icon above to set up the draft.</span>
+          </div>
+
+          <div :class="isEditing ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3'">
             <div
               v-for="(p, idx) in draftParticipants"
               :key="idx"
-              class="rounded-xl border p-3 transition-all cursor-pointer"
-              :class="selectedParticipantIdx === idx ? 'bg-accent-base/10 border-accent-base/60 ring-1 ring-accent-base/40' : 'bg-black/30 border-glass-border hover:border-white/20'"
-              @click="selectedParticipantIdx = idx"
+              class="rounded-xl border p-3 transition-all"
+              :class="[
+                isEditing ? 'cursor-pointer' : '',
+                isEditing && selectedParticipantIdx === idx ? 'bg-accent-base/10 border-accent-base/60 ring-1 ring-accent-base/40' : 'bg-black/30 border-glass-border',
+                isEditing && selectedParticipantIdx !== idx ? 'hover:border-white/20' : ''
+              ]"
+              @click="isEditing && (selectedParticipantIdx = idx)"
             >
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                   <span class="text-xs font-black text-accent-base w-6">#{{ idx + 1 }}</span>
                   <input
+                    v-if="isEditing"
                     v-model="p.name"
                     type="text"
                     class="bg-transparent text-sm font-bold text-white focus:outline-none focus:border-b focus:border-accent-base flex-1 min-w-0"
                     @click.stop
                   />
+                  <span v-else class="text-sm font-bold text-white truncate">{{ p.name }}</span>
                 </div>
 
                 <div class="flex items-center gap-1" @click.stop>
                   <span class="text-xs font-semibold text-zinc-400 mr-2">{{ p.teamIds.length }} teams</span>
-                  <button
-                    type="button"
-                    :disabled="idx === 0"
-                    class="p-1 text-zinc-400 hover:text-white disabled:opacity-30"
-                    title="Move Up"
-                    @click="moveParticipant(idx, -1)"
-                  >↑</button>
-                  <button
-                    type="button"
-                    :disabled="idx === draftParticipants.length - 1"
-                    class="p-1 text-zinc-400 hover:text-white disabled:opacity-30"
-                    title="Move Down"
-                    @click="moveParticipant(idx, 1)"
-                  >↓</button>
-                  <button
-                    type="button"
-                    class="p-1 text-zinc-500 hover:text-rose-400"
-                    title="Remove Participant"
-                    @click="removeParticipant(idx)"
-                  >×</button>
+                  <template v-if="isEditing">
+                    <button
+                      type="button"
+                      :disabled="idx === 0"
+                      class="p-1 text-zinc-400 hover:text-white disabled:opacity-30"
+                      title="Move Up"
+                      @click="moveParticipant(idx, -1)"
+                    >↑</button>
+                    <button
+                      type="button"
+                      :disabled="idx === draftParticipants.length - 1"
+                      class="p-1 text-zinc-400 hover:text-white disabled:opacity-30"
+                      title="Move Down"
+                      @click="moveParticipant(idx, 1)"
+                    >↓</button>
+                    <button
+                      type="button"
+                      class="p-1 text-zinc-500 hover:text-rose-400"
+                      title="Remove Participant"
+                      @click="removeParticipant(idx)"
+                    >×</button>
+                  </template>
                 </div>
               </div>
 
@@ -312,6 +382,7 @@ const handleDownloadJson = () => {
                   <span class="text-[0.65rem] font-bold text-accent-base">{{ teamById.get(String(teamId))?.seed ?? '?' }}</span>
                   <span>{{ teamById.get(String(teamId))?.name || teamId }}</span>
                   <button
+                    v-if="isEditing"
                     type="button"
                     class="text-zinc-500 hover:text-rose-400 ml-0.5 font-bold"
                     @click.stop="unassignTeam(idx, teamId)"
@@ -324,7 +395,7 @@ const handleDownloadJson = () => {
       </section>
 
       <!-- Right Column: Tournament Teams Pool -->
-      <section class="lg:col-span-7">
+      <section v-if="isEditing" class="lg:col-span-7">
         <div class="bg-glass-bg border border-glass-border rounded-2xl p-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>

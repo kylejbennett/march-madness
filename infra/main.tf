@@ -98,6 +98,13 @@ resource "aws_iam_role_policy" "lambda_s3_and_logs" {
       {
         Effect = "Allow"
         Action = [
+          "s3:ListBucket"
+        ]
+        Resource = aws_s3_bucket.pool_data.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "s3:GetObject",
           "s3:PutObject"
         ]
@@ -259,8 +266,13 @@ resource "aws_api_gateway_deployment" "pool_api" {
       aws_api_gateway_integration.put_season_lambda.id,
       aws_api_gateway_method.options_season.id,
       aws_api_gateway_integration.options_season_mock.id,
+      aws_api_gateway_method_response.options_season_200.id,
+      aws_api_gateway_integration_response.options_season_200.id,
+      aws_api_gateway_integration_response.options_season_200.response_parameters,
       aws_api_gateway_gateway_response.cors_4xx.id,
+      aws_api_gateway_gateway_response.cors_4xx.response_parameters,
       aws_api_gateway_gateway_response.cors_5xx.id,
+      aws_api_gateway_gateway_response.cors_5xx.response_parameters,
     ]))
   }
 
